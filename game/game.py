@@ -1,6 +1,6 @@
 import pygame
 import sys
-import os
+
 from settings import (
     SCREEN_W, SCREEN_H, FPS, TITLE,
     STARTING_LIVES, SPEED_UP_EVERY, SPEED_INCREMENT,
@@ -92,23 +92,6 @@ def draw_overlay(surface, lines, font_big, font_med):
 class Game:
     def __init__(self):
         pygame.init()
-        pygame.mixer.init()
-
-        self.paddle_sound = pygame.mixer.Sound(
-            os.path.join("sounds", "paddle.wav")
-        )
-
-        self.brick_sound = pygame.mixer.Sound(
-            os.path.join("sounds", "brick.wav")
-        )
-
-        self.lose_sound = pygame.mixer.Sound(
-            os.path.join("sounds", "lose.wav")
-        )
-
-        self.win_sound = pygame.mixer.Sound(
-            os.path.join("sounds", "win.wav")
-        )  
         self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
         pygame.display.set_caption(TITLE)
         self.clock  = pygame.time.Clock()
@@ -174,15 +157,10 @@ class Game:
         keys = pygame.key.get_pressed()
         self.paddle.update(keys)
         self.ball.update(self.paddle.rect)
-        old_vy = self.ball.vy
         self.ball.bounce_paddle(self.paddle.rect)
-        if old_vy != self.ball.vy:
-            self.paddle_sound.play()
 
         # Brick collision
         result = check_brick_collision(self.ball, self.bricks)
-        if result is not None:
-            self.brick_sound.play()
         if result is True:       # brick destroyed
             self.score      += 10
             self.bricks_hit += 1
@@ -195,7 +173,6 @@ class Game:
         # Win check
         if all(not b.alive for b in self.bricks):
             self.state = "won"
-            self.win_sound.play()
             return
 
         # Ball out
@@ -203,7 +180,6 @@ class Game:
             self.lives -= 1
             if self.lives <= 0:
                 self.state = "game_over"
-                self.lose_sound.play()
             else:
                 self.state = "lost_life"
 

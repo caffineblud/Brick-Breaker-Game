@@ -1,27 +1,41 @@
 import pygame
 from settings import (
-    BRICK_W, BRICK_H, BRICK_PAD, BRICK_TOP,
-    BRICK_ROWS, BRICK_COLS,
-    ROW_CONFIG, GRAY, WHITE
+    BRICK_WIDTH,
+    BRICK_HEIGHT,
+    BRICK_ROWS,
+    BRICK_COLS,
+    BRICK_PADDING,
+    BRICK_OFFSET_TOP,
+    WHITE,
 )
+
+
+GRAY = (140, 140, 140)
+ROW_CONFIG = [
+    ((255, 100, 100), 2),
+    ((255, 180, 80), 2),
+    ((255, 255, 120), 1),
+    ((120, 220, 255), 1),
+    ((120, 255, 140), 1),
+    ((200, 120, 255), 2),
+]
 
 
 class Brick:
     def __init__(self, row, col):
-        self.row   = row
-        self.col   = col
+        self.row = row
+        self.col = col
 
-        color, hp       = ROW_CONFIG[row % len(ROW_CONFIG)]
-        self.color      = color
-        self.max_hp     = hp
-        self.hp         = hp
-        self.alive      = True
+        self.color, hp = ROW_CONFIG[row % len(ROW_CONFIG)]
+        self.max_hp = hp
+        self.hp = hp
+        self.alive = True
 
         self.rect = pygame.Rect(
-            col * (BRICK_W + BRICK_PAD) + BRICK_PAD + 3,
-            row * (BRICK_H + BRICK_PAD) + BRICK_TOP,
-            BRICK_W,
-            BRICK_H,
+            col * (BRICK_WIDTH + BRICK_PADDING) + BRICK_PADDING + 3,
+            row * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_OFFSET_TOP,
+            BRICK_WIDTH,
+            BRICK_HEIGHT,
         )
 
     def hit(self):
@@ -45,7 +59,7 @@ class Brick:
 
         color = self._get_draw_color()
         pygame.draw.rect(surface, color, self.rect, border_radius=5)
-        pygame.draw.rect(surface, GRAY,  self.rect, 2, border_radius=5)
+        pygame.draw.rect(surface, GRAY, self.rect, 2, border_radius=5)
 
         # Shine strip
         shine = pygame.Rect(
@@ -67,3 +81,23 @@ class Brick:
 
 def create_bricks():
     return [Brick(r, c) for r in range(BRICK_ROWS) for c in range(BRICK_COLS)]
+
+
+def check_brick_collision(ball, bricks):
+    for brick in bricks[:]:
+        if ball.rect.colliderect(brick.rect):
+            overlap_x = min(ball.rect.right, brick.rect.right) - max(ball.rect.left, brick.rect.left)
+            overlap_y = min(ball.rect.bottom, brick.rect.bottom) - max(ball.rect.top, brick.rect.top)
+
+            if overlap_x < overlap_y:
+                ball.vx *= -1
+            else:
+                ball.vy *= -1
+
+            if brick.hit():
+                bricks.remove(brick)
+                return 10
+
+            return 5
+
+    return None

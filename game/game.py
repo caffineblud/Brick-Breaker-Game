@@ -2,7 +2,17 @@ import pygame
 import sys
 import os
 from game.powerup import PowerUp
-from settings import WIDTH, HEIGHT, FPS, BLACK, WHITE
+from settings import (
+    WIDTH,
+    HEIGHT,
+    FPS,
+    BLACK,
+    WHITE,
+    MAX_PADDLE_WIDTH,
+    MIN_BALL_SPEED,
+    EXPAND_DURATION,
+    SLOW_DURATION
+)
 from game.paddle import Paddle
 from game.ball import Ball
 from game.brick import create_bricks, check_brick_collision
@@ -31,6 +41,10 @@ class Game:
         self.particles = []
         #powerups
         self.powerups = []
+        # effect timer
+        self.expand_timer = 0
+        self.slow_timer = 0
+
         # Sounds
         self.paddle_sound = pygame.mixer.Sound(
             os.path.join("sounds", "paddle.wav")
@@ -47,7 +61,7 @@ class Game:
         self.win_sound = pygame.mixer.Sound(
             os.path.join("sounds", "win.wav")
         )
-
+        
     def update(self):
         if self.state != "playing":
             return
@@ -96,11 +110,31 @@ class Game:
         if result is not None:
             self.score += result
             import random
-            if random.random() < 0.25:
+            drop_chance = random.random()
+            if drop_chance < 0.12:
                 self.powerups.append(
                     PowerUp(
                         self.ball.rect.centerx,
-                        self.ball.rect.centery
+                        self.ball.rect.centery,
+                        "expand"
+                    )
+                )
+
+            elif drop_chance < 0.20:
+                self.powerups.append(
+                    PowerUp(
+                        self.ball.rect.centerx,
+                        self.ball.rect.centery,
+                        "slow"
+                    )
+                )
+
+            elif drop_chance < 0.25:
+                self.powerups.append(
+                    PowerUp(
+                        self.ball.rect.centerx,
+                        self.ball.rect.centery,
+                        "life"
                     )
                 )
             self.brick_sound.play()
@@ -134,18 +168,52 @@ class Game:
             powerup.move()
             if powerup.rect.colliderect(self.paddle.rect):
                 if powerup.type == "expand":
-                    self.paddle.rect.width += 40
+                    self.paddle.rect.width = min(
+                        self.paddle.rect.width + 40,
+                        MAX_PADDLE_WIDTH
+                    )
+                    self.expand_timer = pygame.time.get_ticks()
 
                 elif powerup.type == "slow":
-                    self.ball.vx *= 0.8
-                    self.ball.vy *= 0.8
+                    self.ball.vx = (
+                        -max(abs(self.ball.vx * 0.8), MIN_BALL_SPEED)
+                        if self.ball.vx < 0
+                        else max(abs(self.ball.vx * 0.8), MIN_BALL_SPEED)
+                    )
+
+                    self.ball.vy = (
+                        -max(abs(self.ball.vy * 0.8), MIN_BALL_SPEED)
+                        if self.ball.vy < 0
+                        else max(abs(self.ball.vy * 0.8), MIN_BALL_SPEED)
+                    )
+
+                    self.slow_timer = pygame.time.get_ticks()
 
                 elif powerup.type == "life":
                     self.lives += 1
-                    self.powerups.remove(powerup)
+
+                self.powerups.remove(powerup)
 
             elif powerup.rect.top > HEIGHT:
                 self.powerups.remove(powerup)
+
+        current_time = pygame.time.get_ticks()
+
+        # Expand reset
+        if (
+            self.expand_timer
+            and current_time - self.expand_timer > EXPAND_DURATION
+        ):
+            self.paddle.rect.width = 120
+            self.expand_timer = 0
+
+        # Slow reset
+        if (
+            self.slow_timer
+            and current_time - self.slow_timer > SLOW_DURATION
+        ):
+            self.ball.reset(self.paddle.rect)
+            self.slow_timer = 0
 
         # Update particles
         for particle in self.particles[:]:
@@ -189,6 +257,22 @@ class Game:
 
         self.screen.blit(score_text, (20, 10))
         self.screen.blit(lives_text, (WIDTH - 120, 10))
+
+        if self.expand_timer:
+            expand_text = font.render(
+                f"EXPAND: {(EXPAND_DURATION - (pygame.time.get_ticks() - self.expand_timer)) // 1000}s",
+                True,
+                (0, 255, 0)
+            )
+            self.screen.blit(expand_text, (20, 50))
+
+        if self.slow_timer:
+            slow_text = font.render(
+                f"SLOW: {(SLOW_DURATION - (pygame.time.get_ticks() - self.slow_timer)) // 1000}s",
+                True,
+                (0, 0, 255)
+            )
+            self.screen.blit(slow_text, (20, 80))
 
         # End states
         if self.state == "game_over":

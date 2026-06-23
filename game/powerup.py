@@ -5,9 +5,8 @@ import random
 class PowerUp:
     TYPES = ["expand", "slow", "life"]
 
-    def __init__(self, x, y):
-        self.type = random.choice(self.TYPES)
-
+    def __init__(self, x, y, power_type):
+        self.type = power_type
         self.rect = pygame.Rect(
             x,
             y,

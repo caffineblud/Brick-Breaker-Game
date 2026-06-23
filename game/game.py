@@ -1,7 +1,7 @@
 import pygame
 import sys
 import os
-
+from game.powerup import PowerUp
 from settings import WIDTH, HEIGHT, FPS, BLACK, WHITE
 from game.paddle import Paddle
 from game.ball import Ball
@@ -29,7 +29,8 @@ class Game:
 
         # Particles
         self.particles = []
-
+        #powerups
+        self.powerups = []
         # Sounds
         self.paddle_sound = pygame.mixer.Sound(
             os.path.join("sounds", "paddle.wav")
@@ -94,6 +95,14 @@ class Game:
 
         if result is not None:
             self.score += result
+            import random
+            if random.random() < 0.25:
+                self.powerups.append(
+                    PowerUp(
+                        self.ball.rect.centerx,
+                        self.ball.rect.centery
+                    )
+                )
             self.brick_sound.play()
 
             # Brick explosion particles
@@ -120,6 +129,23 @@ class Game:
         if len(self.bricks) == 0:
             self.state = "won"
             self.win_sound.play()
+        #powerup update
+        for powerup in self.powerups[:]:
+            powerup.move()
+            if powerup.rect.colliderect(self.paddle.rect):
+                if powerup.type == "expand":
+                    self.paddle.rect.width += 40
+
+                elif powerup.type == "slow":
+                    self.ball.vx *= 0.8
+                    self.ball.vy *= 0.8
+
+                elif powerup.type == "life":
+                    self.lives += 1
+                    self.powerups.remove(powerup)
+
+            elif powerup.rect.top > HEIGHT:
+                self.powerups.remove(powerup)
 
         # Update particles
         for particle in self.particles[:]:
@@ -127,6 +153,7 @@ class Game:
 
             if particle.life <= 0:
                 self.particles.remove(particle)
+        
 
     def draw(self):
         self.screen.fill(BLACK)
@@ -136,6 +163,10 @@ class Game:
 
         for brick in self.bricks:
             brick.draw(self.screen)
+            
+        #draw powerups
+        for powerup in self.powerups:
+            powerup.draw(self.screen)
 
         # Draw particles
         for particle in self.particles:

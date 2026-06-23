@@ -1,3 +1,4 @@
+import random
 import pygame
 import sys
 import os
@@ -11,7 +12,8 @@ from settings import (
     MAX_PADDLE_WIDTH,
     MIN_BALL_SPEED,
     EXPAND_DURATION,
-    SLOW_DURATION
+    SLOW_DURATION,
+    COMBO_RESET_TIME
 )
 from game.paddle import Paddle
 from game.ball import Ball
@@ -34,6 +36,8 @@ class Game:
         self.bricks = create_bricks()
 
         self.score = 0
+        self.combo = 0
+        self.last_brick_hit_time = 0
         self.lives = 3
         self.state = "playing"
 
@@ -108,8 +112,14 @@ class Game:
         )
 
         if result is not None:
-            self.score += result
-            import random
+            current_time = pygame.time.get_ticks()
+            if current_time - self.last_brick_hit_time <= COMBO_RESET_TIME:
+                self.combo += 1
+            else:
+                self.combo = 1
+
+            self.last_brick_hit_time = current_time
+            self.score += result * self.combo
             drop_chance = random.random()
             if drop_chance < 0.12:
                 self.powerups.append(
@@ -152,7 +162,7 @@ class Game:
         # Ball falls below screen
         if self.ball.rect.top > HEIGHT:
             self.lives -= 1
-
+            self.combo = 0
             if self.lives <= 0:
                 self.state = "game_over"
                 self.lose_sound.play()
@@ -198,7 +208,11 @@ class Game:
                 self.powerups.remove(powerup)
 
         current_time = pygame.time.get_ticks()
-
+        if (
+            self.combo > 0
+            and current_time - self.last_brick_hit_time > COMBO_RESET_TIME
+        ):
+            self.combo = 0
         # Expand reset
         if (
             self.expand_timer
@@ -212,9 +226,12 @@ class Game:
             self.slow_timer
             and current_time - self.slow_timer > SLOW_DURATION
         ):
-            self.ball.reset(self.paddle.rect)
-            self.slow_timer = 0
+            # Restore normal speed while keeping direction
+            self.ball.vx = -5 if self.ball.vx < 0 else 5
+            self.ball.vy = -5 if self.ball.vy < 0 else 5
 
+            self.slow_timer = 0
+            
         # Update particles
         for particle in self.particles[:]:
             particle.update()
@@ -258,6 +275,14 @@ class Game:
         self.screen.blit(score_text, (20, 10))
         self.screen.blit(lives_text, (WIDTH - 120, 10))
 
+        if self.combo > 1:
+            combo_text = font.render(
+                f"COMBO x{self.combo}",
+                True,
+                (255, 215, 0)
+            )
+            self.screen.blit(combo_text, (WIDTH // 2 - 80, 10))
+            
         if self.expand_timer:
             expand_text = font.render(
                 f"EXPAND: {(EXPAND_DURATION - (pygame.time.get_ticks() - self.expand_timer)) // 1000}s",
